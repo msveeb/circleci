@@ -53,8 +53,8 @@ workflows:
           requires:
             - build 
       - oast:
-	  requires:
-	    - test
+          requires:
+            - test
       - integration:
           requires:
             - test
