@@ -17,37 +17,25 @@ jobs:
           pip install -r requirements.txt
           python manage.py test taskManager
 
-  oast:
+  zap_baseline:
     machine: true
     steps:
       - checkout
 
-      - run:
-          command: docker run -v $(pwd):/src --rm hysnsec/safety check -r /src/requirements.txt --json | tee oast-results.json
-          when: on_fail             # Even if the job fails, continue to the next stages
+      - run: |
+          docker pull owasp/zap2docker-stable:2.10.0
+          docker run --user root --rm -v $(pwd):/zap/wrk:rw -w /zap owasp/zap2docker-stable:2.10.0 zap-baseline.py -t ${PROD_URL} -J zap-output.json
 
       - store_artifacts:
-          path: oast-results.json
-          destination: safety-artifact
-          when: always
-
-  integration:
-    docker:
-      - image: python:3.6
-    steps:
-      - checkout
-      - run:
-          command: |
-            echo "This is an integration step"
-            exit 1
-          when: on_fail                    # Even if the job fails, continue to the next stages
+          path: zap-output.json
+          destination: zap-artifact
 
   prod:
     docker:
       - image: python:3.6
     steps:
       - checkout
-      - run: echo "This is a deploy step"
+      - run: echo "This is a deploy step."
 
 workflows:
   version: 2
@@ -56,14 +44,11 @@ workflows:
       - build
       - test:
           requires:
-            - build
-      - oast:
+            - build 
+      - zap_baseline:
           requires:
             - test
-      - integration:
-          requires:
-            - oast
       - prod:
           type: approval
           requires:
-            - integration
+            - zap_baseline
